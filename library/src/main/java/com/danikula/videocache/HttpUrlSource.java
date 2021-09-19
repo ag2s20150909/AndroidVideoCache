@@ -1,6 +1,7 @@
 package com.danikula.videocache;
 
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.danikula.videocache.headers.EmptyHeadersInjector;
 import com.danikula.videocache.headers.HeaderInjector;
@@ -59,6 +60,7 @@ public class HttpUrlSource implements Source {
     }
 
     public HttpUrlSource(@Nullable CronetEngine cronetEngine,String url, SourceInfoStorage sourceInfoStorage, HeaderInjector headerInjector) {
+        this.cronetEngine=cronetEngine;
         this.sourceInfoStorage = checkNotNull(sourceInfoStorage);
         this.headerInjector = checkNotNull(headerInjector);
         SourceInfo sourceInfo = sourceInfoStorage.get(url);
@@ -169,8 +171,11 @@ public class HttpUrlSource implements Source {
         do {
             LOG.debug("Open connection " + (offset > 0 ? " with offset " + offset : "") + " to " + url);
             if(cronetEngine!=null){
+                LOG.error("using Cronet ");
+                Log.e("HttpUrlSource","using Cronet ");
                 connection = (HttpURLConnection) cronetEngine.openConnection(new URL(url));
             }else {
+                Log.e("HttpUrlSource","using HttpURLConnection ");
                 connection=(HttpURLConnection) new URL(url).openConnection();
             }
             injectCustomHeaders(connection, url);
