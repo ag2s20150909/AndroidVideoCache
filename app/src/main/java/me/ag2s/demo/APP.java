@@ -1,9 +1,12 @@
 package me.ag2s.demo;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
 
 import com.danikula.videocache.HttpProxyCacheServer;
+
+import java.io.File;
 
 public class APP extends Application {
     @Override
@@ -18,6 +21,7 @@ public class APP extends Application {
         super.attachBaseContext(base);
         context=getApplicationContext();
     }
+    @SuppressLint("StaticFieldLeak")
     private static Context context;
 
     public static Context getContext() {
@@ -33,6 +37,11 @@ public class APP extends Application {
 
 
     private HttpProxyCacheServer newProxy() {
-        return new HttpProxyCacheServer(this,CronetClient.getInstance().getEngine());
+       return new  HttpProxyCacheServer.Builder(this)
+               .cronetEngine(CronetClient.getInstance().getEngine())
+               .cacheDirectory(new File(this.getExternalCacheDir(),"videoCache"))
+               .maxCacheSize(1024 * 1024 * 1024)       // 1 Gb for cache
+        .build();
+//        return new HttpProxyCacheServer(this,CronetClient.getInstance().getEngine());
     }
 }

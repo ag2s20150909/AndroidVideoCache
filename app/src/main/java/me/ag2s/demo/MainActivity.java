@@ -21,23 +21,20 @@ public class MainActivity extends AppCompatActivity {
         binding=ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         binding.videoView.setMediaController(new MediaController(this));
-        binding.play.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try{
-                    HttpProxyCacheServer proxy=APP.getProxy(MainActivity.this);
-                    String proxyUrl = proxy.getProxyUrl("https://9890.vod.myqcloud.com/9890_4e292f9a3dd011e6b4078980237cc3d3.f20.mp4");
-                    Log.e("GG",proxyUrl);
-                    if(binding.videoView.isPlaying()){
-                        binding.videoView.pause();
-                    }
-                    binding.videoView.setVideoPath(proxyUrl);
-                    binding.videoView.start();
-                }catch (Exception e){
-                    Log.e("eee",e.getMessage(),e);
-
-                    e.printStackTrace();
+        binding.play.setOnClickListener(v -> {
+            try{
+                HttpProxyCacheServer proxy=APP.getProxy(MainActivity.this);
+                String proxyUrl = proxy.getProxyUrl("https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv");
+                Log.e("GG",proxyUrl);
+                if(binding.videoView.isPlaying()){
+                    binding.videoView.pause();
                 }
+                binding.videoView.setVideoPath(proxyUrl);
+                binding.videoView.start();
+            }catch (Exception e){
+                Log.e("eee",e.getMessage(),e);
+
+                e.printStackTrace();
             }
         });
 
