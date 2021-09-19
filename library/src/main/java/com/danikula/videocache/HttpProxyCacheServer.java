@@ -1,7 +1,13 @@
 package com.danikula.videocache;
 
+import static com.danikula.videocache.Preconditions.checkAllNotNull;
+import static com.danikula.videocache.Preconditions.checkNotNull;
+
 import android.content.Context;
 import android.net.Uri;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.danikula.videocache.file.DiskUsage;
 import com.danikula.videocache.file.FileNameGenerator;
@@ -13,6 +19,7 @@ import com.danikula.videocache.headers.HeaderInjector;
 import com.danikula.videocache.sourcestorage.SourceInfoStorage;
 import com.danikula.videocache.sourcestorage.SourceInfoStorageFactory;
 
+import org.chromium.net.CronetEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,9 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static com.danikula.videocache.Preconditions.checkAllNotNull;
-import static com.danikula.videocache.Preconditions.checkNotNull;
 
 /**
  * Simple lightweight proxy server with file caching support that handles HTTP requests.
@@ -65,11 +69,16 @@ public class HttpProxyCacheServer {
     private final Config config;
     private final Pinger pinger;
 
-    public HttpProxyCacheServer(Context context) {
+    @SuppressWarnings("unused")
+    public HttpProxyCacheServer(@NonNull Context context) {
         this(new Builder(context).buildConfig());
     }
 
-    private HttpProxyCacheServer(Config config) {
+    public HttpProxyCacheServer(@NonNull Context context,@Nullable CronetEngine cronetEngine) {
+        this(new Builder(context).cronetEngine(cronetEngine).buildConfig());
+    }
+
+    private HttpProxyCacheServer(@NonNull Config config) {
         this.config = checkNotNull(config);
         try {
             InetAddress inetAddress = InetAddress.getByName(PROXY_HOST);
@@ -80,7 +89,7 @@ public class HttpProxyCacheServer {
             this.waitConnectionThread = new Thread(new WaitRequestsRunnable(startSignal));
             this.waitConnectionThread.start();
             startSignal.await(); // freeze thread, wait for server starts
-            this.pinger = new Pinger(PROXY_HOST, port);
+            this.pinger = new Pinger(PROXY_HOST, port, config.cronetEngine);
             LOG.info("Proxy cache server started. Is it alive? " + isAlive());
         } catch (IOException | InterruptedException e) {
             socketProcessor.shutdown();
@@ -99,7 +108,7 @@ public class HttpProxyCacheServer {
      * @param url a url to file that should be cached.
      * @return a wrapped by proxy url if file is not fully cached or url pointed to cache file otherwise.
      */
-    public String getProxyUrl(String url) {
+    public String getProxyUrl(@NonNull String url) {
         return getProxyUrl(url, true);
     }
 
@@ -113,7 +122,7 @@ public class HttpProxyCacheServer {
      * @param allowCachedFileUri {@code true} if allow to return file:// uri if url is fully cached
      * @return a wrapped by proxy url if file is not fully cached or url pointed to cache file otherwise (if {@code allowCachedFileUri} is {@code true}).
      */
-    public String getProxyUrl(String url, boolean allowCachedFileUri) {
+    public String getProxyUrl(@NonNull String url,@NonNull boolean allowCachedFileUri) {
         if (allowCachedFileUri && isCached(url)) {
             File cacheFile = getCacheFile(url);
             touchFileSafely(cacheFile);
@@ -122,7 +131,7 @@ public class HttpProxyCacheServer {
         return isAlive() ? appendToProxyUrl(url) : url;
     }
 
-    public void registerCacheListener(CacheListener cacheListener, String url) {
+    public void registerCacheListener(@NonNull CacheListener cacheListener,@NonNull String url) {
         checkAllNotNull(cacheListener, url);
         synchronized (clientsLock) {
             try {
@@ -133,7 +142,7 @@ public class HttpProxyCacheServer {
         }
     }
 
-    public void unregisterCacheListener(CacheListener cacheListener, String url) {
+    public void unregisterCacheListener(@NonNull CacheListener cacheListener, String url) {
         checkAllNotNull(cacheListener, url);
         synchronized (clientsLock) {
             try {
@@ -144,7 +153,7 @@ public class HttpProxyCacheServer {
         }
     }
 
-    public void unregisterCacheListener(CacheListener cacheListener) {
+    public void unregisterCacheListener(@NonNull CacheListener cacheListener) {
         checkNotNull(cacheListener);
         synchronized (clientsLock) {
             for (HttpProxyCacheServerClients clients : clientsMap.values()) {
@@ -159,7 +168,7 @@ public class HttpProxyCacheServer {
      * @param url an url cache file will be checked for.
      * @return {@code true} if cache contains fully cached file for passed in parameters url.
      */
-    public boolean isCached(String url) {
+    public boolean isCached(@NonNull String url) {
         checkNotNull(url, "Url can't be null!");
         return getCacheFile(url).exists();
     }
@@ -353,8 +362,9 @@ public class HttpProxyCacheServer {
         private DiskUsage diskUsage;
         private SourceInfoStorage sourceInfoStorage;
         private HeaderInjector headerInjector;
+        private CronetEngine cronetEngine;
 
-        public Builder(Context context) {
+        public Builder(@NonNull Context context) {
             this.sourceInfoStorage = SourceInfoStorageFactory.newSourceInfoStorage(context);
             this.cacheRoot = StorageUtils.getIndividualCacheDirectory(context);
             this.diskUsage = new TotalSizeLruDiskUsage(DEFAULT_MAX_SIZE);
@@ -374,8 +384,13 @@ public class HttpProxyCacheServer {
          * @param file a cache directory, can't be null.
          * @return a builder.
          */
-        public Builder cacheDirectory(File file) {
+        public Builder cacheDirectory(@NonNull File file) {
             this.cacheRoot = checkNotNull(file);
+            return this;
+        }
+
+        public Builder cronetEngine(@NonNull CronetEngine cronetEngine) {
+            this.cronetEngine = cronetEngine;
             return this;
         }
 
@@ -385,7 +400,7 @@ public class HttpProxyCacheServer {
          * @param fileNameGenerator a new file name generator.
          * @return a builder.
          */
-        public Builder fileNameGenerator(FileNameGenerator fileNameGenerator) {
+        public Builder fileNameGenerator(@NonNull FileNameGenerator fileNameGenerator) {
             this.fileNameGenerator = checkNotNull(fileNameGenerator);
             return this;
         }
@@ -401,7 +416,7 @@ public class HttpProxyCacheServer {
          * @param maxSize max cache size in bytes.
          * @return a builder.
          */
-        public Builder maxCacheSize(long maxSize) {
+        public Builder maxCacheSize(@NonNull long maxSize) {
             this.diskUsage = new TotalSizeLruDiskUsage(maxSize);
             return this;
         }
@@ -414,7 +429,7 @@ public class HttpProxyCacheServer {
          * @param count max cache files count.
          * @return a builder.
          */
-        public Builder maxCacheFilesCount(int count) {
+        public Builder maxCacheFilesCount(@NonNull int count) {
             this.diskUsage = new TotalCountLruDiskUsage(count);
             return this;
         }
@@ -425,7 +440,7 @@ public class HttpProxyCacheServer {
          * @param diskUsage a disk usage strategy, cant be {@code null}.
          * @return a builder.
          */
-        public Builder diskUsage(DiskUsage diskUsage) {
+        public Builder diskUsage(@NonNull DiskUsage diskUsage) {
             this.diskUsage = checkNotNull(diskUsage);
             return this;
         }
@@ -436,7 +451,7 @@ public class HttpProxyCacheServer {
          * @param headerInjector to inject header base on url
          * @return a builder
          */
-        public Builder headerInjector(HeaderInjector headerInjector) {
+        public Builder headerInjector(@NonNull HeaderInjector headerInjector) {
             this.headerInjector = checkNotNull(headerInjector);
             return this;
         }
@@ -452,7 +467,7 @@ public class HttpProxyCacheServer {
         }
 
         private Config buildConfig() {
-            return new Config(cacheRoot, fileNameGenerator, diskUsage, sourceInfoStorage, headerInjector);
+            return new Config(cacheRoot, fileNameGenerator, diskUsage, sourceInfoStorage, headerInjector, cronetEngine);
         }
 
     }

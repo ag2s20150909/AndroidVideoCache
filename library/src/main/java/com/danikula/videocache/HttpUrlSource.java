@@ -7,6 +7,7 @@ import com.danikula.videocache.headers.HeaderInjector;
 import com.danikula.videocache.sourcestorage.SourceInfoStorage;
 import com.danikula.videocache.sourcestorage.SourceInfoStorageFactory;
 
+import org.chromium.net.CronetEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,8 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_PARTIAL;
 import static java.net.HttpURLConnection.HTTP_SEE_OTHER;
 
+import androidx.annotation.Nullable;
+
 /**
  * {@link Source} that uses http resource as source for {@link ProxyCache}.
  *
@@ -41,16 +44,21 @@ public class HttpUrlSource implements Source {
     private SourceInfo sourceInfo;
     private HttpURLConnection connection;
     private InputStream inputStream;
+    @Nullable
+    private CronetEngine cronetEngine;
 
     public HttpUrlSource(String url) {
-        this(url, SourceInfoStorageFactory.newEmptySourceInfoStorage());
+        this(null,url);
+    }
+    public HttpUrlSource(@Nullable CronetEngine cronetEngine,String url) {
+        this(cronetEngine,url, SourceInfoStorageFactory.newEmptySourceInfoStorage());
     }
 
-    public HttpUrlSource(String url, SourceInfoStorage sourceInfoStorage) {
-        this(url, sourceInfoStorage, new EmptyHeadersInjector());
+    public HttpUrlSource(@Nullable CronetEngine cronetEngine,String url, SourceInfoStorage sourceInfoStorage) {
+        this(cronetEngine,url, sourceInfoStorage, new EmptyHeadersInjector());
     }
 
-    public HttpUrlSource(String url, SourceInfoStorage sourceInfoStorage, HeaderInjector headerInjector) {
+    public HttpUrlSource(@Nullable CronetEngine cronetEngine,String url, SourceInfoStorage sourceInfoStorage, HeaderInjector headerInjector) {
         this.sourceInfoStorage = checkNotNull(sourceInfoStorage);
         this.headerInjector = checkNotNull(headerInjector);
         SourceInfo sourceInfo = sourceInfoStorage.get(url);
@@ -60,6 +68,7 @@ public class HttpUrlSource implements Source {
 
     public HttpUrlSource(HttpUrlSource source) {
         this.sourceInfo = source.sourceInfo;
+        this.cronetEngine= source.cronetEngine;
         this.sourceInfoStorage = source.sourceInfoStorage;
         this.headerInjector = source.headerInjector;
     }
@@ -159,7 +168,11 @@ public class HttpUrlSource implements Source {
         String url = this.sourceInfo.url;
         do {
             LOG.debug("Open connection " + (offset > 0 ? " with offset " + offset : "") + " to " + url);
-            connection = (HttpURLConnection) new URL(url).openConnection();
+            if(cronetEngine!=null){
+                connection = (HttpURLConnection) cronetEngine.openConnection(new URL(url));
+            }else {
+                connection=(HttpURLConnection) new URL(url).openConnection();
+            }
             injectCustomHeaders(connection, url);
             if (offset > 0) {
                 connection.setRequestProperty("Range", "bytes=" + offset + "-");

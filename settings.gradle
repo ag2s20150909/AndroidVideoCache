@@ -1,1 +1,3 @@
-include ':sample', ':library', ':test'
+rootProject.name = "AndroidVideoCache"
+include ':library'
+include ':app'

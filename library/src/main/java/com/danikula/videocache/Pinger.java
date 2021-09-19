@@ -1,5 +1,6 @@
 package com.danikula.videocache;
 
+import org.chromium.net.CronetEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,8 @@ import static com.danikula.videocache.Preconditions.checkArgument;
 import static com.danikula.videocache.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import androidx.annotation.Nullable;
+
 /**
  * Pings {@link HttpProxyCacheServer} to make sure it works.
  *
@@ -39,10 +42,12 @@ class Pinger {
     private final ExecutorService pingExecutor = Executors.newSingleThreadExecutor();
     private final String host;
     private final int port;
+    private final CronetEngine cronetEngine;
 
-    Pinger(String host, int port) {
+    Pinger(String host, int port, @Nullable CronetEngine cronetEngine) {
         this.host = checkNotNull(host);
         this.port = port;
+        this.cronetEngine = cronetEngine;
     }
 
     boolean ping(int maxAttempts, int startTimeout) {
@@ -95,7 +100,7 @@ class Pinger {
 
     private boolean pingServer() throws ProxyCacheException {
         String pingUrl = getPingUrl();
-        HttpUrlSource source = new HttpUrlSource(pingUrl);
+        HttpUrlSource source = new HttpUrlSource(cronetEngine,pingUrl);
         try {
             byte[] expectedResponse = PING_RESPONSE.getBytes();
             source.open(0);
