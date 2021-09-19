@@ -2,15 +2,20 @@ package me.ag2s.demo;
 
 import static org.chromium.net.CronetEngine.Builder.HTTP_CACHE_DISK;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
 
 import org.chromium.net.ExperimentalCronetEngine;
+import org.chromium.net.RequestFinishedInfo;
+import org.chromium.net.UrlResponseInfo;
 
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -20,6 +25,7 @@ public class CronetClient {
     public static final String NET_ERROR = "err";
     private static final String TAG = "CronetClient";
 
+    @SuppressLint("StaticFieldLeak")
     private static volatile CronetClient instance = null;
     private final Context mContext;
     public static final ExecutorService executor = Executors.newCachedThreadPool();
